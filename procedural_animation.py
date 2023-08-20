@@ -2,16 +2,19 @@
 import bpy
 import mathutils
 import bmesh
+import math
 
 # Inspiration: https://www.youtube.com/@YFJSR/videos
 
 # TODO:
-# * create cubes into collections
 # * animate creation of new cubes
 # * Add blinking emission when new cubes are created
 # * add colors to cubes
 # * add small bouncing when new cubes are created
 # * experiment with local translations for created cubes
+# Experiment with collisions
+# Experiment with rigid body as constraint to movement
+# aDD SOUND when collide
 
 def delete_objects(objects):
     for obj in objects:
@@ -130,9 +133,21 @@ def main():
         bpy.context.scene.rigidbody_world.collection.objects.link(cube_i)
         working_cubes.append(cube_i)
 
+    """
+    # Idea is to find hit point and then to further create more cubes on contact.
+    # It seems that rigid body can not be used this was.
+    # Maybe using frame by frame rigid body or using kinematic body?
+    while True: 
+        # https://blender.stackexchange.com/a/269349 - collision detection
+        for working_cube in working_cubes:
+            object_location, hitpoint, normal, has_hit = bpy.context.scene.rigidbody_world.convex_sweep_test(working_cube, (-20, -20, -20), (20, 20, 20))
+            if has_hit:
+                print(hitpoint)
+    """
+
+    # Create smaller cubes which become working cubes.
     n_steps = 2
-    curr_step = 0
-    while True:
+    for i in range(n_steps):
         for working_cube in working_cubes:
             new_cubes = create_8_cubes_from_cube2(working_cube)
             for new_cube in new_cubes:
@@ -142,11 +157,33 @@ def main():
         working_cubes.clear()
         working_cubes.extend(storage_cubes)
         storage_cubes.clear()
-        curr_step += 1
-        if curr_step > n_steps:
-            break
 
+    # Initialize working cubes.
+    for working_cube in working_cubes:
+        working_cube.keyframe_insert("scale", frame=0)
+        eul = mathutils.Euler((0.0, math.radians(0.0), 0.0), 'XYZ')
+        working_cube.rotation_euler = eul
+        working_cube.keyframe_insert("rotation_euler", frame=0)
+        working_cube.rigid_body.mass = 30.0
+        working_cube.rigid_body.restitution = 0.1
+        working_cube.rigid_body.enabled = True
+        #working_cube.rigid_body.kinematic = True
+        working_cube.rigid_body.linear_damping = 1.0
+        #working_cube.rigid_body.type = 'PASSIVE'
 
+    # Animation.
+    # Idea1: morphing into another shape with rigid body as constraint
+    # Idea2: all cubes are moved to center but scaled and thus pushed back!
+    for working_cube in working_cubes:
+        if mathutils.noise.random() < 0.5:
+            # Random scale
+            scale = mathutils.noise.random() * 3.0 + 0.5
+            working_cube.scale = mathutils.Vector((scale, scale, scale))
+            working_cube.keyframe_insert("scale", frame=50)
+        # Random rotate.
+        eul = mathutils.Euler((math.radians(300.0), math.radians(300.0), 0.0), 'XYZ')
+        working_cube.rotation_euler = eul
+        working_cube.keyframe_insert("rotation_euler", frame=120)
 
 
 if __name__ == "__main__":
