@@ -160,11 +160,12 @@ def main():
 
     # Initialize working cubes.
     for working_cube in working_cubes:
+        bpy.context.scene.use_gravity = True
         working_cube.keyframe_insert("scale", frame=0)
-        eul = mathutils.Euler((0.0, math.radians(0.0), 0.0), 'XYZ')
-        working_cube.rotation_euler = eul
         working_cube.keyframe_insert("rotation_euler", frame=0)
+        working_cube.keyframe_insert("location", frame=0)
         working_cube.rigid_body.mass = 30.0
+        working_cube.rigid_body.friction = 0.5
         working_cube.rigid_body.restitution = 0.1
         working_cube.rigid_body.enabled = True
         #working_cube.rigid_body.kinematic = True
@@ -174,16 +175,26 @@ def main():
     # Animation.
     # Idea1: morphing into another shape with rigid body as constraint
     # Idea2: all cubes are moved to center but scaled and thus pushed back!
-    for working_cube in working_cubes:
-        if mathutils.noise.random() < 0.5:
+    n_phases = 10
+    curr_frame = 30
+    frame_delta = 30
+    for i in range(n_phases):
+        for working_cube in working_cubes:
+            #if mathutils.noise.random() < 0.5:
+            # Random translation to center.
+            # Usually working directly with transformation while rigid body is applied on this body is not recommended.
+            #world_translation = working_cube.matrix_basis.to_translation()
+            #working_cube.location -= working_cube.location # pull towards center
+            #working_cube.keyframe_insert("location", frame=curr_frame)
             # Random scale
             scale = mathutils.noise.random() * 3.0 + 0.5
             working_cube.scale = mathutils.Vector((scale, scale, scale))
-            working_cube.keyframe_insert("scale", frame=50)
-        # Random rotate.
-        eul = mathutils.Euler((math.radians(300.0), math.radians(300.0), 0.0), 'XYZ')
-        working_cube.rotation_euler = eul
-        working_cube.keyframe_insert("rotation_euler", frame=120)
+            working_cube.keyframe_insert("scale", frame=curr_frame)
+            # Random rotate.
+            #eul = mathutils.Euler((0.0, math.radians(300.0), 0.0), 'XYZ')
+            #working_cube.rotation_euler = eul
+            #working_cube.keyframe_insert("rotation_euler", frame=curr_frame)
+        curr_frame += frame_delta
 
 
 if __name__ == "__main__":
