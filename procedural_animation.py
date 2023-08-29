@@ -171,6 +171,8 @@ def main():
         #working_cube.rigid_body.kinematic = True
         working_cube.rigid_body.linear_damping = 1.0
         #working_cube.rigid_body.type = 'PASSIVE'
+        #working_cube.rigid_body.collision_shape = 'MESH'
+
 
     # Animation.
     # Idea1: morphing into another shape with rigid body as constraint
@@ -187,8 +189,10 @@ def main():
             #working_cube.location -= working_cube.location # pull towards center
             #working_cube.keyframe_insert("location", frame=curr_frame)
             # Random scale
-            scale = mathutils.noise.random() * 3.0 + 0.5
-            working_cube.scale = mathutils.Vector((scale, scale, scale))
+            scale1 = mathutils.noise.random() * 3.0 + 0.5
+            scale2 = mathutils.noise.random() * 3.0 + 0.5
+            scale3 = mathutils.noise.random() * 3.0 + 0.5
+            working_cube.scale = mathutils.Vector((scale1, scale1, scale1))
             working_cube.keyframe_insert("scale", frame=curr_frame)
             # Random rotate.
             #eul = mathutils.Euler((0.0, math.radians(300.0), 0.0), 'XYZ')
