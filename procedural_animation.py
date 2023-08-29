@@ -164,9 +164,9 @@ def main():
         working_cube.keyframe_insert("scale", frame=0)
         working_cube.keyframe_insert("rotation_euler", frame=0)
         working_cube.keyframe_insert("location", frame=0)
-        working_cube.rigid_body.mass = 30.0
-        working_cube.rigid_body.friction = 0.5
-        working_cube.rigid_body.restitution = 0.1
+        working_cube.rigid_body.mass = 3000.0
+        working_cube.rigid_body.friction = 1.0
+        working_cube.rigid_body.restitution = 1.0
         working_cube.rigid_body.enabled = True
         #working_cube.rigid_body.kinematic = True
         working_cube.rigid_body.linear_damping = 1.0
@@ -182,22 +182,23 @@ def main():
     frame_delta = 30
     for i in range(n_phases):
         for working_cube in working_cubes:
-            #if mathutils.noise.random() < 0.5:
-            # Random translation to center.
-            # Usually working directly with transformation while rigid body is applied on this body is not recommended.
-            #world_translation = working_cube.matrix_basis.to_translation()
-            #working_cube.location -= working_cube.location # pull towards center
-            #working_cube.keyframe_insert("location", frame=curr_frame)
-            # Random scale
-            scale1 = mathutils.noise.random() * 3.0 + 0.5
-            scale2 = mathutils.noise.random() * 3.0 + 0.5
-            scale3 = mathutils.noise.random() * 3.0 + 0.5
-            working_cube.scale = mathutils.Vector((scale1, scale1, scale1))
-            working_cube.keyframe_insert("scale", frame=curr_frame)
-            # Random rotate.
-            #eul = mathutils.Euler((0.0, math.radians(300.0), 0.0), 'XYZ')
-            #working_cube.rotation_euler = eul
-            #working_cube.keyframe_insert("rotation_euler", frame=curr_frame)
+            if mathutils.noise.random() < 0.5:
+                # Random translation to center.
+                # Usually working directly with transformation while rigid body is applied on this body is not recommended.
+                #world_translation = working_cube.matrix_basis.to_translation()
+                #working_cube.location -= working_cube.location # pull towards center
+                #working_cube.keyframe_insert("location", frame=curr_frame)
+                # Random scale
+                scale1 = mathutils.noise.random() * 3.0 + 0.5
+                scale2 = mathutils.noise.random() * 3.0 + 0.5
+                scale3 = mathutils.noise.random() * 3.0 + 0.5
+                tmp_scale = working_cube.scale 
+                working_cube.scale = mathutils.Vector((tmp_scale[0], tmp_scale[1], scale1))
+                working_cube.keyframe_insert("scale", frame=curr_frame)
+                # Random rotate.
+                #eul = mathutils.Euler((0.0, math.radians(300.0), 0.0), 'XYZ')
+                #working_cube.rotation_euler = eul
+                #working_cube.keyframe_insert("rotation_euler", frame=curr_frame)
         curr_frame += frame_delta
 
 
