@@ -4,6 +4,8 @@ import mathutils
 import bmesh
 import math
 
+from numpy.random import default_rng
+
 # Inspiration: https://www.youtube.com/@YFJSR/videos
 
 # TODO:
@@ -113,7 +115,67 @@ def create_8_cubes_from_cube2(starting_cube):
         new_cubes.append(new_cube)
     
     return new_cubes
+
+# https://stackoverflow.com/questions/19045971/random-rounding-to-integer-in-python
+def probabilistic_round(x):
+    return int(math.floor(x + mathutils.noise.random()))
+
+# https://github.com/blender/blender/blob/master/source/blender/nodes/geometry/nodes/node_geo_distribute_points_on_faces.cc
+# base_obj - MUST BE TRIANGULATED!
+# returns: list of touples: (p, N)
+def mesh_uniform_sampling(base_obj, n_samples=10, base_density=5.0):
+    rng = default_rng()
+    samples = [] # (p, N)
+    samples_all = []
+    n_polygons = len(base_obj.data.polygons)
+    samples_density = math.ceil(n_samples / n_polygons) + base_density
+    for polygon in base_obj.data.polygons: # must be triangulated mesh!
+        # Extract triangle vertices and their weights.
+        triangle_vertices = []
+        triangle_vertex_weights = []
+        for v_idx in polygon.vertices:
+            v = base_obj.data.vertices[v_idx]
+            triangle_vertices.append(v.co)
+            if len(v.groups) < 1:
+                triangle_vertex_weights.append(0.0)
+            else:
+                triangle_vertex_weights.append(v.groups[0].weight) # TODO: only one group? Investigate! float in [0, 1], default 0.0
+        # Create samples.
+        point_amount = probabilistic_round(polygon.area + samples_density)
+        for i in range(point_amount):
+            a = mathutils.noise.random()
+            b = mathutils.noise.random()
+            c = mathutils.noise.random()
+            s = a + b + c
+            un = (a / s)
+            vn = (b / s)
+            wn = (c / s)
+            p = un * triangle_vertices[0] + vn * triangle_vertices[1] + wn * triangle_vertices[2]
+            w = un * triangle_vertex_weights[0] + vn * triangle_vertex_weights[1] + wn * triangle_vertex_weights[2] # interpolate weight
+            n = polygon.normal # TODO: vertex normals?
+            samples_all.append([p,n,w])
+    print("Number of all samples:", len(samples_all), ". Number of desired samples:", n_samples)
+    if len(samples_all) > n_samples:
+        random_sample_indices = rng.integers(len(samples_all), size=n_samples)
+        for i in random_sample_indices:
+            samples.append(samples_all[i])
+    else:
+        print("Number of all samples is smaller than desired number of samples! Using only number of found samples")
+        samples = samples_all
+    return samples
         
+def morph_to(particles, target_object):
+
+    n_particles = len(particles)
+
+    # Sample points on target object.
+    samples = mesh_uniform_sampling(target_object, n_samples=n_particles, base_density=5.0)
+
+    # Move particles to sampled points.
+    for i in range(n_particles):
+        particles[i].location = samples[i][0]
+        particles[i].keyframe_insert("location", frame=100)
+
 
 def main():
     starting_cubes = get_objects_from_collection("starting_cubes")
@@ -124,6 +186,7 @@ def main():
     bpy.context.scene.rigidbody_world.enabled = True
     collection = bpy.data.collections.new("RigidBodyCubeCollection")
     bpy.context.scene.rigidbody_world.collection = collection
+    bpy.context.scene.use_gravity = True
 
     working_cubes = []
     storage_cubes = []
@@ -146,7 +209,7 @@ def main():
     """
 
     # Create smaller cubes which become working cubes.
-    n_steps = 2
+    n_steps = 3
     for i in range(n_steps):
         for working_cube in working_cubes:
             new_cubes = create_8_cubes_from_cube2(working_cube)
@@ -158,25 +221,34 @@ def main():
         working_cubes.extend(storage_cubes)
         storage_cubes.clear()
 
-    # Initialize working cubes.
+    
+    # Initialize working cubes animation.
     for working_cube in working_cubes:
-        bpy.context.scene.use_gravity = True
         working_cube.keyframe_insert("scale", frame=0)
         working_cube.keyframe_insert("rotation_euler", frame=0)
         working_cube.keyframe_insert("location", frame=0)
+
+    # Initialize working cube physics.
+    for working_cube in working_cubes:
         working_cube.rigid_body.mass = 3000.0
         working_cube.rigid_body.friction = 1.0
         working_cube.rigid_body.restitution = 1.0
-        working_cube.rigid_body.enabled = True
-        #working_cube.rigid_body.kinematic = True
+        #working_cube.rigid_body.enabled = True
+        working_cube.rigid_body.kinematic = True
         working_cube.rigid_body.linear_damping = 1.0
-        #working_cube.rigid_body.type = 'PASSIVE'
+        working_cube.rigid_body.type = 'PASSIVE'
         #working_cube.rigid_body.collision_shape = 'MESH'
 
-
     # Animation.
-    # Idea1: morphing into another shape with rigid body as constraint
+    # Idea1: morphing into another shape with rigid body as constraint.
+    # Cubes are morphing at random times. When it is time to move this object is set to animated but interacting with other.
+    morph_target = bpy.data.collections["morphing_target"].all_objects[0]
+    morph_to(working_cubes, morph_target)
+
     # Idea2: all cubes are moved to center but scaled and thus pushed back!
+    """
+    
+
     n_phases = 10
     curr_frame = 30
     frame_delta = 30
@@ -200,7 +272,7 @@ def main():
                 #working_cube.rotation_euler = eul
                 #working_cube.keyframe_insert("rotation_euler", frame=curr_frame)
         curr_frame += frame_delta
-
+    """
 
 if __name__ == "__main__":
     main()
