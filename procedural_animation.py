@@ -176,6 +176,41 @@ def morph_to(particles, target_object):
         particles[i].location = samples[i][0]
         particles[i].keyframe_insert("location", frame=100)
 
+def create_material(mat_id, mat_type, color=mathutils.Color((1.0, 0.5, 0.1))):
+
+    mat = bpy.data.materials.get(mat_id)
+
+    if mat is None:
+        mat = bpy.data.materials.new(name=mat_id)
+
+    mat.use_nodes = True
+
+    if mat.node_tree:
+        mat.node_tree.links.clear()
+        mat.node_tree.nodes.clear()
+
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+    output = nodes.new(type='ShaderNodeOutputMaterial')
+
+    if mat_type == "diffuse":
+        shader = nodes.new(type='ShaderNodeBsdfDiffuse')
+        nodes["Diffuse BSDF"].inputs[0].default_value = color[:] + (1.0,)
+
+    elif mat_type == "emission":
+        shader = nodes.new(type='ShaderNodeEmission')
+        nodes["Emission"].inputs[0].default_value = color[:] + (1.0,)
+        nodes["Emission"].inputs[1].default_value = 5
+
+    elif mat_type == "glossy":
+        shader = nodes.new(type='ShaderNodeBsdfGlossy')
+        nodes["Glossy BSDF"].inputs[0].default_value = color[:] + (1.0,)
+        nodes["Glossy BSDF"].inputs[1].default_value = 0.2
+
+    links.new(shader.outputs[0], output.inputs[0])
+
+    return mat
+
 
 def main():
     starting_cubes = get_objects_from_collection("starting_cubes")
@@ -186,7 +221,7 @@ def main():
     bpy.context.scene.rigidbody_world.enabled = True
     collection = bpy.data.collections.new("RigidBodyCubeCollection")
     bpy.context.scene.rigidbody_world.collection = collection
-    bpy.context.scene.use_gravity = True
+    bpy.context.scene.use_gravity = False
 
     working_cubes = []
     storage_cubes = []
@@ -196,10 +231,10 @@ def main():
         bpy.context.scene.rigidbody_world.collection.objects.link(cube_i)
         working_cubes.append(cube_i)
 
-    """
     # Idea is to find hit point and then to further create more cubes on contact.
-    # It seems that rigid body can not be used this was.
+    # PROBLEM: It seems that rigid body can not be used this was.
     # Maybe using frame by frame rigid body or using kinematic body?
+    """
     while True: 
         # https://blender.stackexchange.com/a/269349 - collision detection
         for working_cube in working_cubes:
@@ -221,7 +256,16 @@ def main():
         working_cubes.extend(storage_cubes)
         storage_cubes.clear()
 
-    
+    # Initialize working cubes material.
+    for working_cube in working_cubes:
+        col = mathutils.Color((1,1,1,))
+        mat = None
+        if mathutils.noise.random() > 0.2:
+            mat = create_material(working_cube.name+"_mat", "diffuse", color=col)
+        else:
+            mat = create_material(working_cube.name+"_mat", "emission", color=col)
+        working_cube.data.materials.append(mat)
+
     # Initialize working cubes animation.
     for working_cube in working_cubes:
         working_cube.keyframe_insert("scale", frame=0)
@@ -230,25 +274,29 @@ def main():
 
     # Initialize working cube physics.
     for working_cube in working_cubes:
-        working_cube.rigid_body.mass = 3000.0
-        working_cube.rigid_body.friction = 1.0
-        working_cube.rigid_body.restitution = 1.0
-        #working_cube.rigid_body.enabled = True
-        working_cube.rigid_body.kinematic = True
-        working_cube.rigid_body.linear_damping = 1.0
-        working_cube.rigid_body.type = 'PASSIVE'
+        #working_cube.rigid_body.type = 'PASSIVE'
+        working_cube.rigid_body.enabled = True
+        #working_cube.rigid_body.kinematic = True
         #working_cube.rigid_body.collision_shape = 'MESH'
+        working_cube.rigid_body.mass = 3000.0
+        working_cube.rigid_body.friction = 0.3
+        working_cube.rigid_body.restitution = 0.1
+        working_cube.rigid_body.linear_damping = 1.0
+        working_cube.rigid_body.angular_damping = 1.0        
 
     # Animation.
     # Idea1: morphing into another shape with rigid body as constraint.
     # Cubes are morphing at random times. When it is time to move this object is set to animated but interacting with other.
+    # Problem: problematic rigid body in Blender.
+    """
     morph_target = bpy.data.collections["morphing_target"].all_objects[0]
     morph_to(working_cubes, morph_target)
-
-    # Idea2: all cubes are moved to center but scaled and thus pushed back!
     """
-    
 
+    # Animation.
+    # Idea2: all cubes are moved to center but scaled and thus pushed back!
+    # PROBLEM: translation and rotation can not be directly added to rigid body and kinematic body is problematic!
+    """
     n_phases = 10
     curr_frame = 30
     frame_delta = 30
@@ -273,6 +321,68 @@ def main():
                 #working_cube.keyframe_insert("rotation_euler", frame=curr_frame)
         curr_frame += frame_delta
     """
+
+    # Animation.
+    # Cubes are scaled uniformly once under rigid body constraint.
+    """
+    curr_frame = 100
+    for working_cube in working_cubes:
+        # Random scale
+        scale = mathutils.noise.random() * 5.0 + 1.0
+        working_cube.scale = mathutils.Vector((scale, scale, scale))
+        working_cube.keyframe_insert("scale", frame=curr_frame)
+    """
+
+    # Animation.
+    # Cubes are scaled uniformly multiple times under rigid body constraint.
+    n_phases = 10
+    curr_frame = 30
+    frame_delta = 30
+    for i in range(n_phases):
+        for working_cube in working_cubes:
+            if mathutils.noise.random() < 0.5:
+                # Random scale
+                scale1 = mathutils.noise.random() * 3.0 + 0.5
+                working_cube.scale = mathutils.Vector((scale1, scale1, scale1))
+                working_cube.keyframe_insert("scale", frame=curr_frame)
+        curr_frame += frame_delta
+
+    # Animation.
+    # Cubes are scaled non-uniformly.
+    """
+    n_phases = 10
+    curr_frame = 30
+    frame_delta = 30
+    for i in range(n_phases):
+        for working_cube in working_cubes:
+            if mathutils.noise.random() < 0.5:
+                scale1 = mathutils.noise.random() * 3.0 + 0.5
+                scale2 = mathutils.noise.random() * 3.0 + 0.5
+                scale3 = mathutils.noise.random() * 3.0 + 0.5
+                tmp_scale = working_cube.scale 
+                working_cube.scale = mathutils.Vector((tmp_scale[0], tmp_scale[1], scale1))
+                working_cube.keyframe_insert("scale", frame=curr_frame)
+        curr_frame += frame_delta
+    """
+
+    """
+    # Animation.
+    # Cubes are scaled using noise/sin.
+    n_phases = 10
+    curr_frame = 30
+    frame_delta = 30
+    for i in range(n_phases):
+        for working_cube in working_cubes:
+            # mathutils.noise.fractal(position, H, lacunarity, octaves, noise_basis='PERLIN_ORIGINAL')
+            scale1 = mathutils.noise.fractal(working_cube.location + working_cube.scale, 2, 2, 4, noise_basis='PERLIN_ORIGINAL') * 3.3
+            working_cube.scale = mathutils.Vector((scale1, scale1, scale1))
+            working_cube.keyframe_insert("scale", frame=curr_frame)
+        curr_frame += frame_delta
+    """
+
+
+    
+
 
 if __name__ == "__main__":
     main()
