@@ -216,11 +216,11 @@ def main():
     starting_cubes = get_objects_from_collection("starting_cubes")
 
     # Create rigid body world.
-    bpy.ops.rigidbody.world_remove()
-    bpy.ops.rigidbody.world_add()
-    bpy.context.scene.rigidbody_world.enabled = True
-    collection = bpy.data.collections.new("RigidBodyCubeCollection")
-    bpy.context.scene.rigidbody_world.collection = collection
+    if bpy.context.scene.rigidbody_world == None:
+        bpy.ops.rigidbody.world_add()
+        bpy.context.scene.rigidbody_world.enabled = True
+        collection = bpy.data.collections.new("RigidBodyCubeCollection")
+        bpy.context.scene.rigidbody_world.collection = collection
     bpy.context.scene.use_gravity = False
 
     working_cubes = []
@@ -260,8 +260,8 @@ def main():
     for working_cube in working_cubes:
         col = mathutils.Color((1,1,1,))
         mat = None
-        if mathutils.noise.random() > 0.2:
-            mat = create_material(working_cube.name+"_mat", "diffuse", color=col)
+        if mathutils.noise.random() > 0.0:
+            mat = create_material(working_cube.name+"_mat", "glossy", color=col)
         else:
             mat = create_material(working_cube.name+"_mat", "emission", color=col)
         working_cube.data.materials.append(mat)
@@ -336,8 +336,9 @@ def main():
     # Animation.
     # Cubes are scaled uniformly multiple times under rigid body constraint.
     n_phases = 10
-    curr_frame = 30
-    frame_delta = 30
+    
+    frame_delta = 100
+    curr_frame = 0 + frame_delta
     for i in range(n_phases):
         for working_cube in working_cubes:
             if mathutils.noise.random() < 0.5:
